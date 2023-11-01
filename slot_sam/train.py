@@ -52,6 +52,7 @@ if __name__ == '__main__':
     parser.add_argument('--dataset_size', type=int, default=100000)
     parser.add_argument('--wandb_project', type=str, default='Test project')
     parser.add_argument('--wandb_run', type=str, default='run-0')
+    parser.add_argument('--wandb_dir', type=str, default='./wandb')
 
     args = parser.parse_args()
 
@@ -93,7 +94,8 @@ if __name__ == '__main__':
         sync_tensorboard=True,  # auto-upload sb3's tensorboard metrics
         monitor_gym=True,  # auto-upload the videos of agents playing the game
         save_code=True,  # optional
-        name=args.wandb_run
+        name=args.wandb_run,
+        dir=args.wandb_dir
     )
 
     for epoch in range(args.n_epochs):
