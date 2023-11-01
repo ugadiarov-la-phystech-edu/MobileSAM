@@ -1,9 +1,11 @@
+import glob
 import json
 import os
 from typing import Callable
 from typing import List
 from typing import Optional
 
+import cv2
 import numpy as np
 # import pytorch_lightning as pl
 import torch
@@ -18,18 +20,20 @@ from mobile_sam.utils.transforms import ResizeLongestSide
 
 class Shapes2dDataset(Dataset):
     def __init__(
-        self, images: np.ndarray, transform: Callable
+        self, path: str, transform: Callable
     ):
         super().__init__()
-        self.images = images
+        self.path = path
         self.transform = transform
+        self.files = glob.glob(os.path.join(self.path, '*'))
 
     def __getitem__(self, index: int):
-        image = self.images[index]
+        image_path = self.files[index]
+        image = cv2.cvtColor(cv2.imread(image_path), cv2.COLOR_BGR2RGB)
         return self.transform(image), image
 
     def __len__(self):
-        return len(self.images)
+        return len(self.files)
 
 
 class CLEVRDataset(Dataset):
