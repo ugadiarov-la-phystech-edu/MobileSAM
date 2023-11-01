@@ -50,6 +50,7 @@ if __name__ == '__main__':
     parser.add_argument('--n_epochs', type=int, default=100)
     parser.add_argument('--intersection_loss_coef', type=float, default=10)
     parser.add_argument('--dataset_path', type=str, default='./shapes2d_dataset')
+    parser.add_argument('--dataset_size', type=int, default=5000)
     parser.add_argument('--wandb_project', type=str, default='Test project')
     parser.add_argument('--wandb_run', type=str, default='run-0')
     parser.add_argument('--wandb_dir', type=str, default='./wandb')
@@ -77,7 +78,7 @@ if __name__ == '__main__':
     slot_sam = slot_sam.to(device)
     optimizer = torch.optim.Adam(get_parameters(slot_sam), lr=args.learning_rate)
 
-    dataset = Shapes2dDataset(transform=TransformSam(), path=args.dataset_path)
+    dataset = Shapes2dDataset(transform=TransformSam(), path=args.dataset_path, size=args.dataset_size)
     dataloader = DataLoader(
             dataset,
             batch_size=args.train_batch_size,

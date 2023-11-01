@@ -20,12 +20,13 @@ from mobile_sam.utils.transforms import ResizeLongestSide
 
 class Shapes2dDataset(Dataset):
     def __init__(
-        self, path: str, transform: Callable
+        self, path: str, transform: Callable, size: int
     ):
         super().__init__()
         self.path = path
         self.transform = transform
-        self.files = glob.glob(os.path.join(self.path, '*'))
+        self.size = size
+        self.files = glob.glob(os.path.join(self.path, '*'))[:self.size]
 
     def __getitem__(self, index: int):
         image_path = self.files[index]
