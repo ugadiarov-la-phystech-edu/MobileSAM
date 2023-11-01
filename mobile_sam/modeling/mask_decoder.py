@@ -111,20 +111,21 @@ class MaskDecoder(nn.Module):
 
     def predict_masks(
         self,
-        image_embeddings: torch.Tensor,
-        image_pe: torch.Tensor,
-        sparse_prompt_embeddings: torch.Tensor,
-        dense_prompt_embeddings: torch.Tensor,
+        image_embeddings: torch.Tensor, #(1, 256, 64, 64)
+        image_pe: torch.Tensor, #(1, 256, 64, 64)
+        sparse_prompt_embeddings: torch.Tensor, #(1, 2, 256)
+        dense_prompt_embeddings: torch.Tensor, #(1, 256, 64, 64)
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """Predicts masks. See 'forward' for more details."""
+        assert image_embeddings.size()[0] == sparse_prompt_embeddings.size()[0]
+        assert image_embeddings.size()[0] == dense_prompt_embeddings.size()[0]
         # Concatenate output tokens
-        output_tokens = torch.cat([self.iou_token.weight, self.mask_tokens.weight], dim=0)
-        output_tokens = output_tokens.unsqueeze(0).expand(sparse_prompt_embeddings.size(0), -1, -1)
-        tokens = torch.cat((output_tokens, sparse_prompt_embeddings), dim=1)
+        output_tokens = torch.cat([self.iou_token.weight, self.mask_tokens.weight], dim=0) #(5, 256)
+        output_tokens = output_tokens.unsqueeze(0).expand(sparse_prompt_embeddings.size(0), -1, -1) #(1, 5, 256)
+        tokens = torch.cat((output_tokens, sparse_prompt_embeddings), dim=1) #(1, 7, 256)
 
         # Expand per-image data in batch direction to be per-mask
-        src = torch.repeat_interleave(image_embeddings, tokens.shape[0], dim=0)
-        src = src + dense_prompt_embeddings
+        src = image_embeddings + dense_prompt_embeddings
         pos_src = torch.repeat_interleave(image_pe, tokens.shape[0], dim=0)
         b, c, h, w = src.shape
 
