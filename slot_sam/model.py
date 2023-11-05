@@ -7,11 +7,12 @@ from slot_sam.slot_decoder import PointDecoder
 
 
 class SlotSam(nn.Module):
-    def __init__(self, mobile_sam: Sam, num_iterations, num_slots, input_channels, slot_size, mlp_hidden_size, num_heads):
+    def __init__(self, mobile_sam: Sam, num_iterations, num_slots, input_channels, slot_size, mlp_hidden_size, num_heads,
+                 weight_power):
         super().__init__()
         self.mobile_sam = mobile_sam
         self.slot_attention_encoder = SlotAttentionEncoder(
-            num_iterations, num_slots, input_channels, slot_size, mlp_hidden_size, num_heads
+            num_iterations, num_slots, input_channels, slot_size, mlp_hidden_size, num_heads, weight_power
         )
         self.slot_decoder = PointDecoder(slot_size=slot_size)
 

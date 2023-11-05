@@ -3,7 +3,7 @@ from utils_slate import *
 
 class SlotAttention(nn.Module):
     def __init__(self, num_iterations, num_slots,
-                 input_size, slot_size, mlp_hidden_size, heads,
+                 input_size, slot_size, mlp_hidden_size, heads, weight_power=1,
                  epsilon=1e-8):
         super().__init__()
         
@@ -14,6 +14,7 @@ class SlotAttention(nn.Module):
         self.mlp_hidden_size = mlp_hidden_size
         self.epsilon = epsilon
         self.num_heads = heads
+        self.weight_power = weight_power
 
         self.norm_inputs = nn.LayerNorm(input_size)
         self.norm_slots = nn.LayerNorm(slot_size)
@@ -61,6 +62,7 @@ class SlotAttention(nn.Module):
             attn = attn / torch.sum(attn, dim=-2, keepdim=True)
             updates = torch.matmul(attn.transpose(-1, -2), v)                              # Shape: [batch_size, num_heads, num_slots, slot_size // num_heads].
             updates = updates.transpose(1, 2).reshape(B, N_q, -1)                          # Shape: [batch_size, num_slots, slot_size].
+            updates = updates ** self.weight_power
             
             # Slot update.
             slots = self.gru(updates.view(-1, self.slot_size),
@@ -73,7 +75,7 @@ class SlotAttention(nn.Module):
 
 class SlotAttentionEncoder(nn.Module):
     def __init__(self, num_iterations, num_slots,
-                 input_channels, slot_size, mlp_hidden_size, num_heads):
+                 input_channels, slot_size, mlp_hidden_size, num_heads, weight_power):
         super().__init__()
         
         self.num_iterations = num_iterations
@@ -81,6 +83,7 @@ class SlotAttentionEncoder(nn.Module):
         self.input_channels = input_channels
         self.slot_size = slot_size
         self.mlp_hidden_size = mlp_hidden_size
+        self.weight_power = weight_power
 
         self.layer_norm = nn.LayerNorm(input_channels)
         self.mlp = nn.Sequential(
@@ -96,7 +99,7 @@ class SlotAttentionEncoder(nn.Module):
         
         self.slot_attention = SlotAttention(
             num_iterations, num_slots,
-            input_channels, slot_size, mlp_hidden_size, num_heads)
+            input_channels, slot_size, mlp_hidden_size, num_heads, weight_power=self.weight_power)
 
     def forward(self, x):
         # `image` has shape: [batch_size, img_channels, img_height, img_width].

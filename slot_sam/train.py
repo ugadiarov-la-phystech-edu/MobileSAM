@@ -42,6 +42,7 @@ if __name__ == '__main__':
     parser.add_argument('--mlp_hidden_size', type=int, default=64)
     parser.add_argument('--num_heads', type=int, default=1)
     parser.add_argument('--n_points', type=int, default=1)
+    parser.add_argument('--weight_power', type=float, default=1)
     parser.add_argument('--learning_rate', type=float, default=3e-4)
     parser.add_argument('--train_batch_size', type=int, default=32)
     parser.add_argument('--max_grad_norm', type=float, default=5)
@@ -73,7 +74,8 @@ if __name__ == '__main__':
         input_channels,
         args.slot_size,
         args.mlp_hidden_size,
-        args.num_heads
+        args.num_heads,
+        weight_power=args.weight_power
     )
     slot_sam = slot_sam.to(device)
     optimizer = torch.optim.Adam(get_parameters(slot_sam), lr=args.learning_rate)
