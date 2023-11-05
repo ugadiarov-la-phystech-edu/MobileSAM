@@ -1,7 +1,7 @@
 import argparse
 import collections
+import time
 
-import gym
 import numpy as np
 import torch
 import wandb
@@ -9,7 +9,6 @@ from torch.utils.data import DataLoader
 from torchvision.transforms import transforms
 from torchvision import utils as vutils
 
-import envs
 from mobile_sam import sam_model_registry
 from slot_sam.data import TransformSam, Shapes2dDataset
 from slot_sam.model import SlotSam
@@ -17,17 +16,6 @@ from slot_sam.model import SlotSam
 
 def get_parameters(model):
     return [param for name, param in model.named_parameters() if not name.startswith('mobile_sam')]
-
-
-def collect_data(dataset_size):
-    env = gym.make('Navigation5x5-v0')
-    observations = []
-    for i in range(dataset_size):
-        observations.append(env.reset())
-
-    env.close()
-
-    return np.asarray(observations)
 
 
 if __name__ == '__main__':
@@ -102,6 +90,7 @@ if __name__ == '__main__':
     )
 
     for epoch in range(args.n_epochs):
+        start = time.time()
         record = collections.Counter()
         for batch_index, batch in enumerate(dataloader):
             image_torch = batch[0].to(device)
@@ -146,5 +135,6 @@ if __name__ == '__main__':
         nrows, ncols, c, h, w = log_images.size()
         log_images = vutils.make_grid(log_images.view(nrows * ncols, c, h, w), normalize=False, nrow=ncols)
         record['images'] = wandb.Image(log_images)
+        record['fps'] = dataset_size / (time.time() - start)
         wandb.log(record)
 
