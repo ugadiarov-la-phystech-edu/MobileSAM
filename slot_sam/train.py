@@ -1,7 +1,9 @@
 import argparse
 import collections
+import os
 import time
 
+import cv2
 import numpy as np
 import torch
 import wandb
@@ -42,7 +44,7 @@ if __name__ == '__main__':
     parser.add_argument('--dataset_size', type=int, default=5000)
     parser.add_argument('--wandb_project', type=str, default='Test project')
     parser.add_argument('--wandb_run', type=str, default='run-0')
-    parser.add_argument('--wandb_dir', type=str, default='./wandb')
+    parser.add_argument('--wandb_dir', type=str, required=False)
 
     args = parser.parse_args()
 
@@ -79,6 +81,10 @@ if __name__ == '__main__':
 
     dataset_size = len(dataset)
 
+    if args.wandb_dir is None:
+        args.wandb_dir = args.wandb_project
+    os.makedirs(args.wandb_dir, exist_ok=True)
+
     run = wandb.init(
         project=args.wandb_project,
         config=vars(args),
@@ -88,6 +94,9 @@ if __name__ == '__main__':
         name=args.wandb_run,
         dir=args.wandb_dir
     )
+
+    log_images_path = os.path.join(wandb.run.dir, 'images')
+    os.makedirs(log_images_path, exist_ok=True)
 
     for epoch in range(args.n_epochs):
         start = time.time()
@@ -140,4 +149,9 @@ if __name__ == '__main__':
         log_images = vutils.make_grid(log_images.view(nrows * ncols, c, h, w), normalize=False, nrow=ncols)
         record['images'] = wandb.Image(log_images)
         record['fps'] = dataset_size / (time.time() - start)
+
+        log_images_np = log_images.detach().cpu().numpy()
+        log_images_np = np.moveaxis(log_images_np, 0, 2) * 255
+        log_images_np = log_images_np.astype(np.uint8)
+        cv2.imwrite(os.path.join(log_images_path, f'image_{epoch:03d}.png'), cv2.cvtColor(log_images_np, cv2.COLOR_RGB2BRG))
         wandb.log(record)
