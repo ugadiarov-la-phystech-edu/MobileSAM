@@ -20,18 +20,19 @@ from mobile_sam.utils.transforms import ResizeLongestSide
 
 class Shapes2dDataset(Dataset):
     def __init__(
-        self, path: str, transform: Callable, size: int
+        self, path: str, transform_sam: Callable, transform_slot_attention: Callable, size: int
     ):
         super().__init__()
         self.path = path
-        self.transform = transform
+        self.transform_sam = transform_sam
+        self.transform_slot_attention = transform_slot_attention
         self.size = size
         self.files = glob.glob(os.path.join(self.path, '*'))[:self.size]
 
     def __getitem__(self, index: int):
         image_path = self.files[index]
         image = cv2.cvtColor(cv2.imread(image_path), cv2.COLOR_BGR2RGB)
-        return self.transform(image), image
+        return self.transform_sam(image), self.transform_slot_attention(image)
 
     def __len__(self):
         return len(self.files)
@@ -177,6 +178,18 @@ class TransformSam:
                 PreprocessSam(pixel_mean, pixel_std)
             ]
         )
+
+    def __call__(self, input, *args, **kwargs):
+        return self.transforms(input)
+
+
+class TransformSlotAttention:
+    def __init__(self, target_length=64):
+        self.transforms = transforms.Compose([
+            ResizeSam(target_length),
+            transforms.ToTensor(),
+            transforms.Lambda(lambda x: 2 * x - 1)
+        ])
 
     def __call__(self, input, *args, **kwargs):
         return self.transforms(input)

@@ -10,7 +10,7 @@ from torchvision.transforms import transforms
 from torchvision import utils as vutils
 
 from mobile_sam import sam_model_registry
-from slot_sam.data import TransformSam, Shapes2dDataset
+from slot_sam.data import TransformSam, Shapes2dDataset, TransformSlotAttention
 from slot_sam.model import SlotSam
 
 
@@ -54,7 +54,7 @@ if __name__ == '__main__':
         param.requires_grad = False
     mobile_sam.eval()
 
-    input_channels = 256
+    input_channels = 64
     slot_sam = SlotSam(
         mobile_sam,
         args.num_iterations,
@@ -68,7 +68,7 @@ if __name__ == '__main__':
     slot_sam = slot_sam.to(device)
     optimizer = torch.optim.Adam(get_parameters(slot_sam), lr=args.learning_rate)
 
-    dataset = Shapes2dDataset(transform=TransformSam(), path=args.dataset_path, size=args.dataset_size)
+    dataset = Shapes2dDataset(transform_sam=TransformSam(), transform_slot_attention=TransformSlotAttention(), path=args.dataset_path, size=args.dataset_size)
     dataloader = DataLoader(
             dataset,
             batch_size=args.train_batch_size,
@@ -93,8 +93,9 @@ if __name__ == '__main__':
         start = time.time()
         record = collections.Counter()
         for batch_index, batch in enumerate(dataloader):
-            image_torch = batch[0].to(device)
-            low_res_masks, slots, points, attention = slot_sam(image_torch)
+            image_upscale = batch[0].to(device)
+            image = batch[1].to(device)
+            low_res_masks, slots, points, attention = slot_sam(image_upscale, image)
             low_res_masks_sum = low_res_masks.sum(dim=1)
             coverage_loss = torch.nn.functional.binary_cross_entropy_with_logits(low_res_masks_sum, torch.ones_like(low_res_masks_sum))
             intersection_loss = 0
@@ -117,7 +118,7 @@ if __name__ == '__main__':
 
         record['epoch'] = epoch
 
-        val_images = torch.as_tensor(batch[1][:args.n_visualize_images]).permute(0, 3, 1, 2) / 255
+        val_images = torch.as_tensor(batch[1][:args.n_visualize_images]) / 255
         resize = transforms.Resize(size=val_images.size()[2:])
         log_images = []
         vis_points = []
@@ -141,4 +142,3 @@ if __name__ == '__main__':
         record['images'] = wandb.Image(log_images)
         record['fps'] = dataset_size / (time.time() - start)
         wandb.log(record)
-
