@@ -68,7 +68,7 @@ if __name__ == '__main__':
     slot_sam = slot_sam.to(device)
     optimizer = torch.optim.Adam(get_parameters(slot_sam), lr=args.learning_rate)
 
-    dataset = Shapes2dDataset(transform=TransformSam(), path=args.dataset_path, size=args.dataset_size)
+    dataset = Shapes2dDataset(transform_sam=TransformSam(), path=args.dataset_path, size=args.dataset_size)
     dataloader = DataLoader(
             dataset,
             batch_size=args.train_batch_size,
@@ -117,7 +117,7 @@ if __name__ == '__main__':
 
         record['epoch'] = epoch
 
-        val_images = torch.as_tensor(batch[1][:args.n_visualize_images]).permute(0, 3, 1, 2) / 255
+        val_images = batch[1][:args.n_visualize_images]
         resize = transforms.Resize(size=val_images.size()[2:])
         log_images = []
         vis_points = []
@@ -141,4 +141,3 @@ if __name__ == '__main__':
         record['images'] = wandb.Image(log_images)
         record['fps'] = dataset_size / (time.time() - start)
         wandb.log(record)
-

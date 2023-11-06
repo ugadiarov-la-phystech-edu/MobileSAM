@@ -24,11 +24,18 @@ class SlotSam(nn.Module):
         slots, attention = self.slot_attention_encoder(image_embeddings)
         _, num_slots, slot_size = slots.size()
         points = self.slot_decoder(slots.view(batch_size * num_slots, slot_size))
+
+        # point_dimension == 2 for 2D points
+        _, point_dimension = points.size()
         points = points * (torch.as_tensor(
             [self.mobile_sam.prompt_encoder.input_image_size], dtype=torch.float32, device=slots.device
         ) - 1)
-        labels = torch.ones(batch_size * num_slots, 1, dtype=torch.int32, device=slots.device)
-        prompt_encoder_input = (points.unsqueeze(1), labels)
+        points = points.view(batch_size, 1, num_slots, point_dimension)
+        points = points.expand(-1, num_slots, -1, -1)
+        points = points.reshape(batch_size * num_slots, num_slots, point_dimension)
+        labels = torch.eye(num_slots, dtype=torch.int32, device=slots.device).unsqueeze(0)
+        labels = labels.expand(batch_size, -1, -1).reshape(batch_size * num_slots, num_slots)
+        prompt_encoder_input = (points, labels)
         sparse_embeddings, dense_embeddings = self.mobile_sam.prompt_encoder(
             points=prompt_encoder_input,
             boxes=None,
@@ -49,4 +56,4 @@ class SlotSam(nn.Module):
         )
 
         _, _, mask_h, mask_w = low_res_masks.size()
-        return low_res_masks.view(batch_size, num_slots, mask_h, mask_w), slots, points.view(batch_size, num_slots, -1), attention
+        return low_res_masks.view(batch_size, num_slots, mask_h, mask_w), slots, points[labels.to(torch.bool)].view(batch_size, num_slots, -1), attention

@@ -10,7 +10,6 @@ import numpy as np
 # import pytorch_lightning as pl
 import torch
 from PIL import Image
-from torch.utils.data import DataLoader
 from torch.utils.data import Dataset
 from torchvision.transforms import transforms
 
@@ -20,21 +19,35 @@ from mobile_sam.utils.transforms import ResizeLongestSide
 
 class Shapes2dDataset(Dataset):
     def __init__(
-        self, path: str, transform: Callable, size: int
+        self, path: str, transform_sam: Callable, size: int
     ):
         super().__init__()
         self.path = path
-        self.transform = transform
+        self.transform_sam = transform_sam
+        self.to_tensor = transforms.ToTensor()
         self.size = size
         self.files = glob.glob(os.path.join(self.path, '*'))[:self.size]
 
     def __getitem__(self, index: int):
         image_path = self.files[index]
         image = cv2.cvtColor(cv2.imread(image_path), cv2.COLOR_BGR2RGB)
-        return self.transform(image), image
+        return self.transform_sam(image), self.to_tensor(image)
 
     def __len__(self):
         return len(self.files)
+
+
+class MockDataset(Dataset):
+    def __init__(self, image_upscale_shape, image_shape, size):
+        self.image_upscale_shape = image_upscale_shape
+        self.image_shape = image_shape
+        self.size = size
+
+    def __getitem__(self, index: int):
+        return torch.ones(*self.image_upscale_shape, dtype=torch.float32), torch.ones(*self.image_shape, dtype=torch.float32)
+
+    def __len__(self):
+        return self.size
 
 
 class CLEVRDataset(Dataset):
