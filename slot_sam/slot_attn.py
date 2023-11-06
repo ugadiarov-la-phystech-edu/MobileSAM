@@ -60,10 +60,10 @@ class SlotAttention(nn.Module):
             # Weighted mean.
             attn = attn + self.epsilon
             attn = attn / torch.sum(attn, dim=-2, keepdim=True)
+            attn = attn ** self.weight_power
             updates = torch.matmul(attn.transpose(-1, -2), v)                              # Shape: [batch_size, num_heads, num_slots, slot_size // num_heads].
             updates = updates.transpose(1, 2).reshape(B, N_q, -1)                          # Shape: [batch_size, num_slots, slot_size].
-            updates = updates ** self.weight_power
-            
+
             # Slot update.
             slots = self.gru(updates.view(-1, self.slot_size),
                              slots_prev.view(-1, self.slot_size))
