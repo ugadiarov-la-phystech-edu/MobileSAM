@@ -120,16 +120,20 @@ if __name__ == '__main__':
         val_images = torch.as_tensor(batch[1][:args.n_visualize_images]).permute(0, 3, 1, 2) / 255
         resize = transforms.Resize(size=val_images.size()[2:])
         log_images = []
+        vis_points = []
         for val_image, val_points, masks in zip(val_images, points[:args.n_visualize_images].detach().cpu(), torch.sigmoid(low_res_masks[:2]).detach().cpu()):
             images = [val_image]
+            val_points *= (val_images.size()[-1] - 1) / (slot_sam.mobile_sam.image_encoder.img_size - 1)
+            vis_points.append(val_points)
             for mask, point in zip(masks, val_points):
                 resized_mask = resize(mask.unsqueeze(0))
                 image_masked = val_image * resized_mask + (1 - resized_mask)
-                point *= val_images.size()[-1] / slot_sam.mobile_sam.image_encoder.img_size
                 point = point.to(torch.int64)
                 image_masked[:, point[1] - 2: point[1] + 2, point[0] - 2: point[0] + 2] = torch.as_tensor([1., 0., 0.]).view(3, 1, 1)
                 images.append(image_masked)
             log_images.append(torch.stack(images, dim=0))
+
+        record['points'] = vis_points
 
         log_images = torch.stack(log_images, dim=0)
         nrows, ncols, c, h, w = log_images.size()
