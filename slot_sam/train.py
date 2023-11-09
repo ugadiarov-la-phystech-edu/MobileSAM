@@ -1,5 +1,6 @@
 import argparse
 import collections
+import os
 import time
 
 import numpy as np
@@ -14,8 +15,13 @@ from slot_sam.data import TransformSam, Shapes2dDataset
 from slot_sam.model import SlotSam
 
 
-def get_parameters(model):
-    return [param for name, param in model.named_parameters() if not name.startswith('mobile_sam')]
+def get_parameters(model, train_decoder):
+    params = []
+    for name, param in model.named_parameters():
+        if not name.startswith('mobile_sam') or (train_decoder and name.startswith('mobile_sam.mask_decoder')):
+            params.append(param)
+
+    return params
 
 
 if __name__ == '__main__':
@@ -42,7 +48,8 @@ if __name__ == '__main__':
     parser.add_argument('--dataset_size', type=int, default=5000)
     parser.add_argument('--wandb_project', type=str, default='Test project')
     parser.add_argument('--wandb_run', type=str, default='run-0')
-    parser.add_argument('--wandb_dir', type=str, default='./wandb')
+    parser.add_argument('--wandb_dir', type=str, required=False)
+    parser.add_argument('--train_decoder', action='store_true')
 
     args = parser.parse_args()
 
@@ -50,9 +57,14 @@ if __name__ == '__main__':
 
     mobile_sam = sam_model_registry[args.sam_model_type](checkpoint=args.sam_checkpoint_path)
     mobile_sam = mobile_sam.to(device=device)
-    for param in mobile_sam.parameters():
+    for name, param in mobile_sam.named_parameters():
+        if args.train_decoder and name.startswith('mask_decoder'):
+            continue
+
         param.requires_grad = False
     mobile_sam.eval()
+    if args.train_decoder:
+        mobile_sam.mask_decoder.train()
 
     input_channels = 256
     slot_sam = SlotSam(
@@ -66,7 +78,8 @@ if __name__ == '__main__':
         weight_power=args.weight_power
     )
     slot_sam = slot_sam.to(device)
-    optimizer = torch.optim.Adam(get_parameters(slot_sam), lr=args.learning_rate)
+    trainable_params = get_parameters(slot_sam, args.train_decoder)
+    optimizer = torch.optim.Adam(trainable_params, lr=args.learning_rate)
 
     dataset = Shapes2dDataset(transform=TransformSam(), path=args.dataset_path, size=args.dataset_size)
     dataloader = DataLoader(
@@ -78,6 +91,10 @@ if __name__ == '__main__':
         )
 
     dataset_size = len(dataset)
+
+    if args.wandb_dir is None:
+        args.wandb_dir = args.wandb_project
+    os.makedirs(args.wandb_dir, exist_ok=True)
 
     run = wandb.init(
         project=args.wandb_project,
@@ -107,7 +124,7 @@ if __name__ == '__main__':
 
             optimizer.zero_grad()
             loss.backward()
-            grad_norm = torch.nn.utils.clip_grad_norm_(get_parameters(slot_sam), max_norm=args.max_grad_norm)
+            grad_norm = torch.nn.utils.clip_grad_norm_(trainable_params, max_norm=args.max_grad_norm)
             optimizer.step()
             record['coverage_loss'] += coverage_loss.item()
             record['intersection_loss'] += intersection_loss.item()
