@@ -50,7 +50,7 @@ if __name__ == '__main__':
     parser.add_argument('--wandb_run', type=str, default='run-0')
     parser.add_argument('--wandb_dir', type=str, required=False)
     parser.add_argument('--train_decoder', action='store_true')
-    parser.add_argument('--ignore_background', action='store_true')
+    parser.add_argument('--background_thresh', type=float, default=1.0)
 
     args = parser.parse_args()
 
@@ -113,15 +113,15 @@ if __name__ == '__main__':
         for batch_index, batch in enumerate(dataloader):
             image_torch = batch[0].to(device)
             low_res_masks, slots, points, attention = slot_sam(image_torch)
-            if args.ignore_background:
-                max_idx = torch.sigmoid(low_res_masks).sum(dim=(2, 3)).argmax(dim=1, keepdims=True)
-                mask = torch.ones(*low_res_masks.size()[:2], dtype=torch.float32, device=low_res_masks.device)
-                mask = mask.scatter(1, max_idx, value=0)
-                mask = mask.unsqueeze(2).unsqueeze(3)
-                low_res_masks = mask * low_res_masks
+            not_background = torch.sigmoid(low_res_masks).mean(dim=(2, 3)) < args.background_thresh
+            not_background = not_background.to(torch.float32).unsqueeze(2).unsqueeze(3)
 
-            low_res_masks_sum = low_res_masks.sum(dim=1)
-            coverage_loss = torch.nn.functional.binary_cross_entropy_with_logits(low_res_masks_sum, torch.ones_like(low_res_masks_sum))
+            low_res_masks_sum = torch.sum(not_background * low_res_masks, dim=1)
+            coverage_loss = torch.nn.functional.binary_cross_entropy_with_logits(
+                low_res_masks_sum,
+                torch.ones_like(low_res_masks_sum)
+            )
+
             intersection_loss = 0
             n_slots = slots.size()[1]
             for i in range(n_slots):
