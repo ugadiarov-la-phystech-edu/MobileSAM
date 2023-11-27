@@ -2,6 +2,7 @@ import argparse
 import collections
 import os
 import time
+from datetime import datetime
 
 import numpy as np
 import torch
@@ -167,3 +168,5 @@ if __name__ == '__main__':
         record['fps'] = dataset_size / (time.time() - start)
         wandb.log(record)
 
+        del record['images']
+        print(datetime.now(), record, flush=True)
